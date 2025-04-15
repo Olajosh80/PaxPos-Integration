@@ -1,0 +1,29 @@
+# Node modules
+node_modules/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# DLL and build output
+dll/
+dist/
+build/
+
+# Configuration files
+*.env
+config.json
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.swp
+
+# IDE and editor settings
+.idea/
+.vscode/
+*.iml
