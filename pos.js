@@ -2,29 +2,40 @@
  * Author: Ming
  * Email: t8ming@live.com
  * Creation Date: 2025-04-15
- * Description: invoke c# dll wrapper 
- * Version: 1.0
- */ 
+ * Description: Enhanced PAX A920 C# DLL wrapper with configuration management
+ * Version: 2.0
+ */
 import path from "path";
 import edge from "edge-js";
 import { fileURLToPath } from "url";
-// 获取 __dirname 的替代方案
-const __filename = fileURLToPath(import.meta.url); // 当前文件的完整路径
-const __dirname = path.dirname(__filename); // 当前文件所在的目录
+import paxConfig from "./config/pax-config.js";
 
-//配置 Dll所在文件目录
-// const libLocation =
-//   "C://Users//t8min//Desktop//My//development//backend//express//myapp//lib//PaxWrapperSDK.dll";
+// Get __dirname equivalent for ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-// 获取当前项目目录下的路径
+// Configure DLL location
 const libLocation = path.join(__dirname, "libs", "PaxWrapperSDK.dll");
 
+// Validate DLL exists
+import fs from 'fs';
+if (!fs.existsSync(libLocation)) {
+  throw new Error(`PAX Wrapper SDK not found at: ${libLocation}`);
+}
+
+/**
+ * Create Edge.js function for calling C# DLL methods
+ */
 function createEdgeFunc(methodName) {
-  return edge.func({
-    assemblyFile: path.resolve(libLocation),
-    typeName: "MoleQ.Integration.PaxWrapperSdk.PayApi", //程序集名字，固定
-    methodName: methodName,
-  });
+  try {
+    return edge.func({
+      assemblyFile: path.resolve(libLocation),
+      typeName: "MoleQ.Integration.PaxWrapperSdk.PayApi", // Fixed assembly name
+      methodName: methodName,
+    });
+  } catch (error) {
+    throw new Error(`Failed to create Edge function for ${methodName}: ${error.message}`);
+  }
 }
 
 // function ProcessTransAsync(options, callback) {
@@ -62,40 +73,130 @@ function createEdgeFunc(methodName) {
 //   CancelTransInternal({}, triggerResponse);
 // }
 
-function CreateCaller(mappingMethodName, jsonData) {
+/**
+ * Enhanced caller with retry logic and better error handling
+ */
+function CreateCaller(mappingMethodName, jsonData, enableRetry = true) {
   return new Promise((resolve, reject) => {
     const dynamicMethod = createEdgeFunc(mappingMethodName);
     let body = null;
+
     if (jsonData != null) {
-      body = JSON.stringify(jsonData);
-    }
-    dynamicMethod(
-      {
-        changed: null,
-        request: body,
-      },
-      (error, result) => {
-        if (error) {
-          reject(error);
-          return;
-        }
-        resolve(result);
+      // Validate and enhance request data using configuration
+      if (mappingMethodName === "ProcessTrans") {
+        body = JSON.stringify(paxConfig.buildTransactionRequest(jsonData));
+      } else if (mappingMethodName === "SignOnPOS") {
+        body = JSON.stringify(paxConfig.buildSignOnRequest());
+      } else {
+        body = JSON.stringify(jsonData);
       }
-    );
+    }
+
+    const executeCall = (attempt = 1) => {
+      dynamicMethod(
+        {
+          changed: function (data, cb) {
+            // Status callback for transaction progress
+            console.log(`PAX Status Update (${mappingMethodName}):`, data);
+            if (cb) cb();
+          },
+          request: body,
+        },
+        (error, result) => {
+          if (error) {
+            console.error(`PAX ${mappingMethodName} Error (Attempt ${attempt}):`, error);
+
+            // Retry logic for network errors
+            if (enableRetry && attempt < paxConfig.config.transaction.maxRetries) {
+              console.log(`Retrying ${mappingMethodName} in ${paxConfig.config.transaction.retryDelay}ms...`);
+              setTimeout(() => executeCall(attempt + 1), paxConfig.config.transaction.retryDelay);
+              return;
+            }
+
+            reject({
+              error: error.message || error,
+              method: mappingMethodName,
+              attempt: attempt,
+              timestamp: new Date().toISOString()
+            });
+            return;
+          }
+
+          // Parse and validate result
+          try {
+            const parsedResult = typeof result === 'string' ? JSON.parse(result) : result;
+            console.log(`PAX ${mappingMethodName} Success:`, parsedResult);
+            resolve(parsedResult);
+          } catch (parseError) {
+            console.error(`Failed to parse PAX response:`, parseError);
+            resolve(result); // Return raw result if parsing fails
+          }
+        }
+      );
+    };
+
+    executeCall();
   });
 }
 
+/**
+ * Enhanced PAX A920 API Methods with configuration integration
+ */
+
+// Digital signature operations
 const DoSignAsync = (jsonData) => {
   return CreateCaller("DoSign", jsonData);
 };
 
-const GetSignAsync = (jsonData) => CreateCaller("GetSign", jsonData);
+const GetSignAsync = (jsonData) => {
+  return CreateCaller("GetSign", jsonData);
+};
 
-const DoSignOnPOSAsync = (jsonData) => CreateCaller("SignOnPOS", jsonData);
+// POS sign-on operation
+const DoSignOnPOSAsync = (jsonData = null) => {
+  // Use configuration if no data provided
+  const signOnData = jsonData || paxConfig.buildSignOnRequest();
+  return CreateCaller("SignOnPOS", signOnData);
+};
 
-const CancelTransAsync = () => CreateCaller("CancelTrans", null);
+// Transaction cancellation
+const CancelTransAsync = () => {
+  return CreateCaller("CancelTrans", null, false); // No retry for cancellation
+};
 
-const ProcessTransAsync = (jsonData) => CreateCaller("ProcessTrans", jsonData);
+// Main transaction processing
+const ProcessTransAsync = (transactionData) => {
+  // Validate required fields
+  if (!transactionData || !transactionData.amount) {
+    return Promise.reject({
+      error: "Transaction amount is required",
+      code: "INVALID_AMOUNT"
+    });
+  }
+
+  if (transactionData.amount <= 0) {
+    return Promise.reject({
+      error: "Transaction amount must be greater than 0",
+      code: "INVALID_AMOUNT"
+    });
+  }
+
+  return CreateCaller("ProcessTrans", transactionData);
+};
+
+// Terminal connectivity test
+const TestTerminalConnectionAsync = async () => {
+  try {
+    return await paxConfig.testTerminalConnection();
+  } catch (error) {
+    return error;
+  }
+};
+
+// Get configuration summary
+const GetConfigurationAsync = () => {
+  return Promise.resolve(paxConfig.getConfigSummary());
+};
 
 // const ProcessTransAsync = (dto) => {
 //   return new Promise((resolve, reject) => {
@@ -115,4 +216,6 @@ export {
   CancelTransAsync,
   ProcessTransAsync,
   DoSignOnPOSAsync,
+  TestTerminalConnectionAsync,
+  GetConfigurationAsync,
 };

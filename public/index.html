@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PAX A920 POS System</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="pos-container">
+        <!-- Header -->
+        <header class="pos-header">
+            <div class="header-left">
+                <h1><i class="fas fa-cash-register"></i> PAX A920 POS</h1>
+                <div class="connection-status" id="connectionStatus">
+                    <i class="fas fa-circle"></i>
+                    <span>Checking...</span>
+                </div>
+            </div>
+            <div class="header-right">
+                <button class="btn btn-secondary" onclick="testConnection()">
+                    <i class="fas fa-wifi"></i> Test Connection
+                </button>
+                <button class="btn btn-secondary" onclick="signOnPOS()">
+                    <i class="fas fa-sign-in-alt"></i> Sign On
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <div class="pos-main">
+            <!-- Left Panel - Product Entry -->
+            <div class="left-panel">
+                <div class="product-entry">
+                    <h3>Product Entry</h3>
+                    <div class="input-group">
+                        <label>Product Name</label>
+                        <input type="text" id="productName" placeholder="Enter product name">
+                    </div>
+                    <div class="input-group">
+                        <label>Price ($)</label>
+                        <input type="number" id="productPrice" placeholder="0.00" step="0.01" min="0">
+                    </div>
+                    <div class="input-group">
+                        <label>Quantity</label>
+                        <input type="number" id="productQuantity" placeholder="1" min="1" value="1">
+                    </div>
+                    <button class="btn btn-primary" onclick="addProduct()">
+                        <i class="fas fa-plus"></i> Add to Cart
+                    </button>
+                </div>
+
+                <!-- Shopping Cart -->
+                <div class="shopping-cart">
+                    <h3>Shopping Cart</h3>
+                    <div class="cart-items" id="cartItems">
+                        <div class="empty-cart">
+                            <i class="fas fa-shopping-cart"></i>
+                            <p>Cart is empty</p>
+                        </div>
+                    </div>
+                    <div class="cart-total">
+                        <div class="total-line">
+                            <span>Subtotal:</span>
+                            <span id="subtotal">$0.00</span>
+                        </div>
+                        <div class="total-line">
+                            <span>Tax (8%):</span>
+                            <span id="tax">$0.00</span>
+                        </div>
+                        <div class="total-line total-final">
+                            <span>Total:</span>
+                            <span id="total">$0.00</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel - Payment Processing -->
+            <div class="right-panel">
+                <div class="payment-section">
+                    <h3>Payment Processing</h3>
+                    
+                    <!-- Payment Amount Display -->
+                    <div class="amount-display">
+                        <div class="amount-label">Amount to Charge</div>
+                        <div class="amount-value" id="paymentAmount">$0.00</div>
+                    </div>
+
+                    <!-- Payment Type Selection -->
+                    <div class="payment-types">
+                        <h4>Payment Method</h4>
+                        <div class="payment-buttons">
+                            <button class="payment-btn active" data-type="CREDIT" onclick="selectPaymentType('CREDIT')">
+                                <i class="fas fa-credit-card"></i>
+                                Credit Card
+                            </button>
+                            <button class="payment-btn" data-type="DEBIT" onclick="selectPaymentType('DEBIT')">
+                                <i class="fas fa-money-check-alt"></i>
+                                Debit Card
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Transaction Buttons -->
+                    <div class="transaction-buttons">
+                        <button class="btn btn-success btn-large" onclick="processPayment()" id="processBtn">
+                            <i class="fas fa-credit-card"></i>
+                            Process Payment
+                        </button>
+                        <button class="btn btn-warning btn-large" onclick="cancelTransaction()" id="cancelBtn" disabled>
+                            <i class="fas fa-times"></i>
+                            Cancel Transaction
+                        </button>
+                        <button class="btn btn-info btn-large" onclick="processReturn()">
+                            <i class="fas fa-undo"></i>
+                            Process Return
+                        </button>
+                        <button class="btn btn-danger btn-large" onclick="clearCart()">
+                            <i class="fas fa-trash"></i>
+                            Clear Cart
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Transaction Status -->
+                <div class="transaction-status" id="transactionStatus">
+                    <h4>Transaction Status</h4>
+                    <div class="status-content">
+                        <p>Ready for transaction</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Transaction History -->
+        <div class="transaction-history">
+            <h3>Recent Transactions</h3>
+            <div class="history-list" id="historyList">
+                <div class="no-transactions">
+                    <i class="fas fa-history"></i>
+                    <p>No recent transactions</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-content">
+            <div class="spinner"></div>
+            <p>Processing transaction...</p>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div class="toast" id="toast">
+        <div class="toast-content">
+            <i class="toast-icon"></i>
+            <span class="toast-message"></span>
+        </div>
+    </div>
+
+    <script src="pos-app.js"></script>
+</body>
+</html>

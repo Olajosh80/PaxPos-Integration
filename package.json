@@ -3,8 +3,11 @@
   "version": "1.0.0",
   "main": "app.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node app.js"
+    "start": "node app.js",
+    "dev": "nodemon app.js",
+    "test": "node test/connection-test.js",
+    "test:connection": "node test/connection-test.js",
+    "setup": "echo 'Setting up PAX A920 POS System...' && npm install && echo 'Setup complete! Run npm start to begin.'"
   },
   "type": "module",
   "author": "Ming",
